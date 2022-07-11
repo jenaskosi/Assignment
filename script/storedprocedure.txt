@@ -1,0 +1,42 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:      Skhulile Skosana
+-- Create Date: 9 July 2022
+-- Description: return a summary of orders from the data
+-- =============================================
+
+--EXEC pr_GetOrderSummary NULL,NULL,'1996-07-08','1996-07-30'
+ALTER PROCEDURE [dbo].[pr_GetOrderSummary]
+(
+    @CustomerId nvarchar(max),
+	@EmployeeId int,
+	@StartDate Date,
+	@EndDate Date
+)
+AS
+BEGIN
+    -- SET NOCOUNT ON added to prevent extra result sets from
+    -- interfering with SELECT statements.
+SET NOCOUNT ON
+
+
+SELECT Employees.TitleOfCourtesy + ' '+ Employees.FirstName + ' '+ Employees.LastName FullEmployeeName, Shippers.CompanyName Shipper, Customers.CompanyName AS Customer, Ord.OrderDate, 
+
+(SELECT COUNT(Orders.OrderID) FROM Orders WHERE Ord.CustomerID=Orders.CustomerID) AS NoOfOrders, 
+(SELECT SUM(Orders.Freight) FROM Orders WHERE Ord.CustomerID=Orders.CustomerID) AS TotalFreighCosts,
+(SELECT COUNT (DISTINCT ProductID) FROM [Order Details] WHERE Ord.OrderID=[Order Details].OrderID) AS NumberOfDifferentProducts,
+(SELECT SUM(([UnitPrice]*[Quantity])- [Discount]) FROM [Order Details] WHERE Ord.OrderID=[Order Details].OrderID) AS TotalOrderValue
+FROM     Orders Ord INNER JOIN
+                  Employees ON Ord.EmployeeID = Employees.EmployeeID INNER JOIN
+                  Shippers ON Ord.ShipVia = Shippers.ShipperID INNER JOIN
+                  Customers ON Ord.CustomerID = Customers.CustomerID
+ WHERE Ord.CustomerId=ISNULL(@CustomerId,Ord.CustomerId)
+ AND Ord.EmployeeID=ISNULL(@EmployeeId,Ord.EmployeeID)
+ AND OrderDate>=@StartDate and OrderDate<=@EndDate
+GROUP BY Ord.CustomerID,Ord.OrderID,Employees.TitleOfCourtesy, Employees.FirstName, Employees.LastName, Shippers.CompanyName, Customers.CompanyName, Day(Ord.OrderDate),Ord.OrderDate
+ORDER BY DAY(Ord.OrderDate),Employees.FirstName,Employees.LastName,Customers.CompanyName,Shippers.CompanyName
+
+END
